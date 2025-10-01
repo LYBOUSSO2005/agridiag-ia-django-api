@@ -1,0 +1,17 @@
+# Fichiers et dossiers généraux à ignorer
+.idea
+.vscode
+__pycache__/
+*.pyc
+
+# Environnement virtuel
+venv/
+env/
+
+# Fichiers spécifiques à Django
+db.sqlite3
+/media
+/staticfiles
+
+# Fichiers de log et d'IDE
+*.log
