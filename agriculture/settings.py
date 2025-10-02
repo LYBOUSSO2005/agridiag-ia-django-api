@@ -47,7 +47,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-ROOT_URLCONF = 'agridiag_ia.urls' 
+ROOT_URLCONF = 'agriculture.urls' 
 
 TEMPLATES = [
     {
@@ -65,7 +65,7 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'agridiag_ia.wsgi.application' 
+WSGI_APPLICATION = 'agriculture.wsgi.application' 
 
 
 # --- BASE DE DONNÉES (Configuration de Production) ---
