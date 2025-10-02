@@ -1,1 +1,2 @@
-web: gunicorn agriculture.wsgi:application
+# Nouveau contenu du Procfile
+web: sh start.sh
