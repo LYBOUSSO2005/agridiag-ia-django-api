@@ -11,6 +11,7 @@ import os
 
 from django.core.wsgi import get_wsgi_application
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'agricul_ia.settings')
+# CORRECTION : Le module de configuration doit être 'agriculture.settings'
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'agriculture.settings')
 
 application = get_wsgi_application()
