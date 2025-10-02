@@ -1,10 +1,15 @@
+# diagnosis_api/ai_model.py
+
 import torch
 from torchvision import models, transforms
 from PIL import Image
 import io
+import os
+from django.conf import settings # Import pour utiliser BASE_DIR
+
+# --- 1. Constantes (Peut rester en haut) ---
 
 # Le dictionnaire qui associe l'index à la classe (maladie/plante)
-# Mettre à jour avec la liste exacte des 32 classes
 class_names = [
     'Anthracnose_mangue', 'Brûlure_bactérienne_des_feuilles', 'Chancre_bacterien_mangue', 
     'Charancon_coupeur_mangue', 'Deperissement_mangue', 'Feuille_de_riz_saine', 
@@ -20,34 +25,65 @@ class_names = [
     'virus_de_la_mosaïque_de_la_tomate', 'Échaudage_des feuilles'
 ]
 
-# Charger le modèle entraîné
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-model = models.resnet18(weights=None)
-num_ftrs = model.fc.in_features
-model.fc = torch.nn.Linear(num_ftrs, len(class_names))
-model.load_state_dict(torch.load('model_entraine.pth', map_location=device))
-model.eval()
+# Modèle et prétraitement (Déclaration de variables globales pour le Lazy Loading)
+MODEL = None
+PREPROCESS = None
+DEVICE = torch.device("cpu") # Forcer le CPU, car CUDA (GPU) est souvent indisponible/limité
 
-# Définir les transformations pour les nouvelles images
-preprocess = transforms.Compose([
-    transforms.Resize(256),
-    transforms.CenterCrop(224),
-    transforms.ToTensor(),
-    transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-])
+# --- 2. Fonction de Chargement Unique (Initialisation Différée) ---
+
+def load_ai_model_once():
+    """Charge le modèle et les transformations une seule fois."""
+    global MODEL, PREPROCESS, DEVICE
+    
+    if MODEL is None:
+        print("--- Début du chargement du modèle PyTorch (Lazy Loading) ---")
+        
+        # NOTE IMPORTANTE: Le chemin doit être ABSOLU sur Render.
+        # Utilisez os.path.join(settings.BASE_DIR, ...)
+        # Assurez-vous que 'model_entraine.pth' est bien à la racine de 'diagnosis_api/'
+        model_path = os.path.join(settings.BASE_DIR, 'diagnosis_api', 'model_entraine.pth')
+        
+        # Définir le modèle
+        MODEL = models.resnet18(weights=None)
+        num_ftrs = MODEL.fc.in_features
+        MODEL.fc = torch.nn.Linear(num_ftrs, len(class_names))
+        
+        # Charger les poids
+        MODEL.load_state_dict(torch.load(model_path, map_location=DEVICE))
+        MODEL.eval()
+        
+        # Définir les transformations
+        PREPROCESS = transforms.Compose([
+            transforms.Resize(256),
+            transforms.CenterCrop(224),
+            transforms.ToTensor(),
+            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+        ])
+        
+        print("--- Modèle PyTorch chargé et initialisé sur le CPU ---")
+
+# --- 3. Fonction d'Analyse (Utilise le modèle chargé) ---
 
 def analyze_image(image_data):
     try:
+        # Charger le modèle s'il n'est pas encore chargé (première requête)
+        load_ai_model_once() 
+
+        # Alias pour la clarté
+        model_loaded = MODEL
+        preprocess_loaded = PREPROCESS
+        
         # Ouvrir l'image
         image = Image.open(io.BytesIO(image_data)).convert('RGB')
         
         # Prétraiter l'image
-        input_tensor = preprocess(image)
+        input_tensor = preprocess_loaded(image)
         input_batch = input_tensor.unsqueeze(0)  # Créer un mini-batch
         
-        # Déplacer l'image sur le bon périphérique
+        # Déplacer l'image sur le bon périphérique (CPU)
         with torch.no_grad():
-            output = model(input_batch.to(device))
+            output = model_loaded(input_batch.to(DEVICE))
             
         # Obtenir les probabilités et la classe prédite
         probabilities = torch.nn.functional.softmax(output[0], dim=0)
@@ -57,6 +93,12 @@ def analyze_image(image_data):
         prediction = class_names[top_class.item()]
         
         return prediction
+        
+    except FileNotFoundError:
+        error_msg = f"Erreur: Le fichier modèle 'model_entraine.pth' n'a pas été trouvé à l'emplacement attendu."
+        print(error_msg)
+        return error_msg
+        
     except Exception as e:
         print(f"Erreur d'analyse d'image: {e}")
         return "Erreur d'analyse"
