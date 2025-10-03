@@ -109,7 +109,7 @@ USE_TZ = True
 STATIC_URL = 'static/'
 
 # NOUVEAU: Le chemin où WhiteNoise/Render va collecter tous les fichiers statiques pour la production
-STATIC_ROOT = BASE_DIR / 'staticfiles' 
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 # NOUVEAU: Configuration pour que WhiteNoise serve les fichiers statiques (plus rapide et compressé)
 STORAGES = {
