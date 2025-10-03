@@ -10,8 +10,7 @@ import 'history_screen.dart';
 
 // L'URL de votre API Django.
 // ASSUREZ-VOUS que cette adresse IP est l'adresse IPv4 ACTUELLE de votre PC.
-const String apiBaseUrl = 'http://192.168.1.11:8000/api/diagnose/';
-
+const String apiBaseUrl = 'https://agridiag-ia-django-api-1.onrender.com/api/diagnose/';
 // Dictionnaire d'informations multilingues (FR et WO)
 // Structure: {Nom_Maladie: {Code_Langue: {description: '...', conseil: '...'}}}
 const Map<String, Map<String, Map<String, String>>> diseaseInfo = {

@@ -1,13 +1,16 @@
 # diagnosis_api/ai_model.py
 
-import torch
-from torchvision import models, transforms
+# Garder les imports non-PyTorch en haut
 from PIL import Image
 import io
 import os
-from django.conf import settings # Import pour utiliser BASE_DIR
+from django.conf import settings 
 
-# --- 1. Constantes (Peut rester en haut) ---
+# Déclarer les variables globales pour PyTorch/Torchvision
+torch = None
+models = None
+transforms = None
+# ... (le reste de vos constantes)
 
 # Le dictionnaire qui associe l'index à la classe (maladie/plante)
 class_names = [
@@ -25,23 +28,31 @@ class_names = [
     'virus_de_la_mosaïque_de_la_tomate', 'Échaudage_des feuilles'
 ]
 
-# Modèle et prétraitement (Déclaration de variables globales pour le Lazy Loading)
+# Modèle et prétraitement 
 MODEL = None
 PREPROCESS = None
-DEVICE = torch.device("cpu") # Forcer le CPU, car CUDA (GPU) est souvent indisponible/limité
-
-# --- 2. Fonction de Chargement Unique (Initialisation Différée) ---
+DEVICE = None # Initialisé dans la fonction de chargement
 
 def load_ai_model_once():
-    """Charge le modèle et les transformations une seule fois."""
-    global MODEL, PREPROCESS, DEVICE
+    """Charge les librairies PyTorch, le modèle et les transformations une seule fois."""
+    global MODEL, PREPROCESS, DEVICE, torch, models, transforms
     
     if MODEL is None:
+        print("--- Début du chargement des librairies PyTorch (Lazy Import) ---")
+        
+        # 1. IMPORTER LES LIBRAIRIES LOURDES ICI (C'est la modification clé)
+        import torch as torch_lib
+        import torchvision.models as models_lib
+        import torchvision.transforms as transforms_lib
+        
+        # Mettre à jour les variables globales (nécessaire pour analyze_image)
+        torch, models, transforms = torch_lib, models_lib, transforms_lib
+        
+        DEVICE = torch.device("cpu") # Forcer le CPU
+        
         print("--- Début du chargement du modèle PyTorch (Lazy Loading) ---")
         
         # NOTE IMPORTANTE: Le chemin doit être ABSOLU sur Render.
-        # Utilisez os.path.join(settings.BASE_DIR, ...)
-        # Assurez-vous que 'model_entraine.pth' est bien à la racine de 'diagnosis_api/'
         model_path = os.path.join(settings.BASE_DIR, 'diagnosis_api', 'model_entraine.pth')
         
         # Définir le modèle
@@ -63,39 +74,32 @@ def load_ai_model_once():
         
         print("--- Modèle PyTorch chargé et initialisé sur le CPU ---")
 
-# --- 3. Fonction d'Analyse (Utilise le modèle chargé) ---
-
 def analyze_image(image_data):
     try:
         # Charger le modèle s'il n'est pas encore chargé (première requête)
         load_ai_model_once() 
 
-        # Alias pour la clarté
+        # ... (le reste de la fonction analyze_image ne change pas)
         model_loaded = MODEL
         preprocess_loaded = PREPROCESS
         
-        # Ouvrir l'image
         image = Image.open(io.BytesIO(image_data)).convert('RGB')
         
-        # Prétraiter l'image
         input_tensor = preprocess_loaded(image)
-        input_batch = input_tensor.unsqueeze(0)  # Créer un mini-batch
+        input_batch = input_tensor.unsqueeze(0) 
         
-        # Déplacer l'image sur le bon périphérique (CPU)
         with torch.no_grad():
             output = model_loaded(input_batch.to(DEVICE))
             
-        # Obtenir les probabilités et la classe prédite
         probabilities = torch.nn.functional.softmax(output[0], dim=0)
         top_prob, top_class = torch.topk(probabilities, 1)
         
-        # Obtenir le nom de la classe
         prediction = class_names[top_class.item()]
         
         return prediction
         
     except FileNotFoundError:
-        error_msg = f"Erreur: Le fichier modèle 'model_entraine.pth' n'a pas été trouvé à l'emplacement attendu."
+        error_msg = f"Erreur: Le fichier modèle 'model_entraine.pth' n'a pas été trouvé."
         print(error_msg)
         return error_msg
         
